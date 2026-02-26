@@ -4,10 +4,14 @@ keygen.py
 Generates a secp256k1 ECDSA key pair using the starkbank-ecdsa library
 (exposed as starkbank.key.create()).
 
+The SDK saves the files as:
+    keys/private-key.pem   <- keep secret, set as STARKBANK_PRIVATE_KEY
+    keys/public-key.pem    <- paste the contents into Stark Bank dashboard
+
 Usage
 -----
     python keygen.py              # prints to stdout
-    python keygen.py keys/        # saves keys/privateKey.pem + publicKey.pem
+    python keygen.py keys/        # saves keys/private-key.pem + keys/public-key.pem
 """
 
 import sys
@@ -28,9 +32,12 @@ if __name__ == "__main__":  # pragma: no cover
     print("=" * 60)
     print(priv)
     print("=" * 60)
-    print("PUBLIC KEY  (upload to Stark Bank dashboard)")
+    print("PUBLIC KEY  (paste this into the Stark Bank dashboard)")
+    print("Menu → Integrations → New Project → Public Key field")
     print("=" * 60)
     print(pub)
 
     if save_path:
-        print(f"\nKeys saved to: {save_path}")
+        print(f"\nFiles saved:")
+        print(f"  {save_path}private-key.pem  <- keep secret")
+        print(f"  {save_path}public-key.pem   <- paste into dashboard")
