@@ -1,16 +1,10 @@
-"""
-app/invoices.py
-===============
-Issues batches of Invoices via the Stark Bank Python SDK.
-"""
-
 import logging
 import random
 from datetime import datetime, timedelta, timezone
 
 import starkbank
 
-from app.config import INVOICE_MIN_BATCH, INVOICE_MAX_BATCH
+from app.config import config
 from app.people import random_payer
 
 logger = logging.getLogger(__name__)
@@ -35,12 +29,7 @@ def _make_invoice() -> starkbank.Invoice:
 
 
 def issue_batch() -> list[starkbank.Invoice]:
-    """
-    Create a random batch of 8–12 Invoices via starkbank.invoice.create().
-
-    Raises starkbank.error.InputErrors or Exception on failure.
-    """
-    count    = random.randint(INVOICE_MIN_BATCH, INVOICE_MAX_BATCH)
+    count    = random.randint(config.INVOICE_MIN_BATCH, config.INVOICE_MAX_BATCH)
     invoices = [_make_invoice() for _ in range(count)]
 
     created = starkbank.invoice.create(invoices)

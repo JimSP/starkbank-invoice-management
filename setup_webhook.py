@@ -8,7 +8,7 @@ One-time script to register the webhook endpoint on Stark Bank.
 
 import sys
 import starkbank
-from app.config import init_starkbank
+from app.config import config
 
 
 def register(url: str) -> starkbank.Webhook:
@@ -28,7 +28,7 @@ if __name__ == "__main__":  # pragma: no cover
         print("Usage: python setup_webhook.py <public-https-url>")
         sys.exit(1)
 
-    init_starkbank()
+    config.init_starkbank()
     register(sys.argv[1])
 
     print("\nAll registered webhooks:")

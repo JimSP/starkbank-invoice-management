@@ -3,6 +3,9 @@ starkbank==2.20.0
 Flask==3.0.3
 APScheduler==3.10.4
 gunicorn==22.0.0
+python-dotenv==1.2.1
+psutil==7.2.2
+pytest-mock==3.15.1
 
 # Testing
 pytest==8.2.2

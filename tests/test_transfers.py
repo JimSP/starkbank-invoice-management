@@ -36,11 +36,11 @@ class TestForwardPayment:
 
     @patch("app.transfers.starkbank.transfer.create")
     def test_uses_correct_destination(self, mock_create):
-        from app.config import TRANSFER_DESTINATION
+        from app.config import config
         mock_create.return_value = [MagicMock(id="t2")]
         forward_payment("inv5", credited_amount=2_000, fee=0)
         t = mock_create.call_args[0][0][0]
-        assert t.bank_code      == TRANSFER_DESTINATION["bank_code"]
-        assert t.branch_code    == TRANSFER_DESTINATION["branch_code"]
-        assert t.account_number == TRANSFER_DESTINATION["account_number"]
-        assert t.tax_id         == TRANSFER_DESTINATION["tax_id"]
+        assert t.bank_code      == config.BANK_CODE
+        assert t.branch_code    == config.BRANCH_CODE
+        assert t.account_number == config.ACCOUNT_NUMBER
+        assert t.tax_id         == config.TAX_ID

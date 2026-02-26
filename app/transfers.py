@@ -1,15 +1,8 @@
-"""
-app/transfers.py
-================
-Forwards the net amount of a credited Invoice to Stark Bank S.A.
-via starkbank.transfer.create().
-"""
-
 import logging
 
 import starkbank
 
-from app.config import TRANSFER_DESTINATION
+from app.config import config
 
 logger = logging.getLogger(__name__)
 
@@ -19,11 +12,6 @@ def forward_payment(
     credited_amount: int,
     fee: int,
 ) -> starkbank.Transfer | None:
-    """
-    Send ``credited_amount - fee`` cents to the configured destination.
-
-    Returns None (and skips the API call) when net amount is <= 0.
-    """
     net = credited_amount - fee
 
     if net <= 0:
@@ -35,12 +23,12 @@ def forward_payment(
 
     transfer = starkbank.Transfer(
         amount=net,
-        bank_code=TRANSFER_DESTINATION["bank_code"],
-        branch_code=TRANSFER_DESTINATION["branch_code"],
-        account_number=TRANSFER_DESTINATION["account_number"],
-        account_type=TRANSFER_DESTINATION["account_type"],
-        name=TRANSFER_DESTINATION["name"],
-        tax_id=TRANSFER_DESTINATION["tax_id"],
+        bank_code=config.BANK_CODE,
+        branch_code=config.BRANCH_CODE,
+        account_number=config.ACCOUNT_NUMBER,
+        account_type=config.ACCOUNT_TYPE,
+        name=config.NAME,
+        tax_id=config.TAX_ID,
     )
 
     created = starkbank.transfer.create([transfer])

@@ -6,11 +6,13 @@ Flask application that receives and processes Stark Bank webhook events.
 starkbank.event.parse() automatically fetches Stark Bank's public key and
 verifies the Digital-Signature header using the starkbank-ecdsa library.
 """
-
+import time
+import psutil
+from datetime import datetime, timezone
 import logging
+from flask import Flask, jsonify, request
 
 import starkbank
-from flask import Flask, jsonify, request
 
 from app.transfers import forward_payment
 
@@ -18,11 +20,48 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
+START_TIME = time.time()
+
 
 @app.get("/health")
 def health():
-    """Liveness probe for load-balancers and Cloud Run."""
-    return jsonify({"status": "ok"}), 200
+    # Cálculo de Uptime
+    uptime_seconds = int(time.time() - START_TIME)
+    
+    # Telemetria de Sistema
+    cpu_usage = psutil.cpu_percent(interval=None)
+    memory = psutil.virtual_memory()
+    disk = psutil.disk_usage('/')
+
+    payload = {
+        "status": "ok",
+        "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "service": "starkbank-webhook-manager",
+        "telemetry": {
+            "uptime_seconds": uptime_seconds,
+            "cpu": {
+                "usage_percent": cpu_usage,
+                "cores": psutil.cpu_count()
+            },
+            "memory": {
+                "total_mb": memory.total // (1024 * 1024),
+                "available_mb": memory.available // (1024 * 1024),
+                "used_percent": memory.percent
+            },
+            "disk": {
+                "free_gb": round(disk.free / (1024**3), 2),
+                "used_percent": disk.percent
+            }
+        }
+    }
+
+    # Se a CPU ou Memória estiverem críticas, você pode mudar o status
+    # mas ainda retornar 200 para o Load Balancer não matar a máquina precocemente
+    if memory.percent > 95 or cpu_usage > 95:
+        payload["status"] = "warning"
+        payload["message"] = "High resource usage detected"
+
+    return jsonify(payload), 200
 
 
 @app.post("/webhook")
@@ -41,9 +80,14 @@ def webhook():
     except starkbank.error.InvalidSignatureError:
         logger.warning("Webhook rejected — invalid Digital-Signature header.")
         return jsonify({"error": "invalid signature"}), 401
-    except Exception as exc:  # noqa: BLE001
-        logger.error("Failed to parse webhook event: %s", exc)
+    except ValueError as exc:
+        # Se o JSON estiver quebrado ou o content for inválido
+        logger.warning("Webhook rejected — bad payload: %s", exc)
         return jsonify({"error": "parse error"}), 400
+    except Exception as exc:
+        # Qualquer outro erro: falha de rede do SDK, falta de memória, bugs.
+        logger.error("Unexpected internal error during webhook processing: %s", exc, exc_info=True)
+        return jsonify({"status": "internal_error"}), 500
 
     logger.info("Event received — subscription=%s id=%s", event.subscription, event.id)
 

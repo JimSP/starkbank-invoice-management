@@ -11,3 +11,4 @@ build/
 ssh-key.key
 ssh-key.pub
 startkbank_cert/
+.DS_Store

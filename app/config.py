@@ -1,58 +1,127 @@
-"""
-app/config.py
-=============
-Centralized configuration.  All values come from environment variables so no
-credentials are ever hard-coded.
-"""
-
 import os
+import json
+import logging
 import starkbank
+from dotenv import load_dotenv
 
-# ---------------------------------------------------------------------------
-# Stark Bank – project credentials
-# ---------------------------------------------------------------------------
-PROJECT_ID  = os.environ.get("STARKBANK_PROJECT_ID",  "")
-PRIVATE_KEY = os.environ.get("STARKBANK_PRIVATE_KEY", "")
-ENVIRONMENT = os.environ.get("STARKBANK_ENVIRONMENT",  "sandbox")
+class AppConfig:
+    def __init__(self, env_file=".env"):
+        load_dotenv(env_file)
 
-# ---------------------------------------------------------------------------
-# Web-server
-# ---------------------------------------------------------------------------
-PORT = int(os.environ.get("PORT", "8080"))
+        if os.environ.get("USE_MOCK_API", "false").lower() == "true":
+            print("⚠️  ATENÇÃO: Redirecionando tráfego HTTP para MOCK API (localhost:9090)")
+            import requests
+            
+            _original_request = requests.Session.request
 
-# ---------------------------------------------------------------------------
-# Transfer destination  (Stark Bank S.A.)
-# ---------------------------------------------------------------------------
-TRANSFER_DESTINATION = {
-    "bank_code":      "20018183",
-    "branch_code":    "0001",
-    "account_number": "6341320293482496",
-    "account_type":   "payment",
-    "name":           "Stark Bank S.A.",
-    "tax_id":         "20.018.183/0001-80",
-}
+            def _redirect_request(self, method, url, *args, **kwargs):
+                if "starkbank.com" in url:
+                    import requests
+                    from urllib.parse import urlparse, urlunparse
+                    parsed = urlparse(url)
+                    
+                    clean_path = parsed.path.replace("//", "/")
+                    new_url = urlunparse((
+                        "http",
+                        "127.0.0.1:9090", 
+                        clean_path,
+                        parsed.params,          
+                        parsed.query,           
+                        parsed.fragment         
+                    ))
 
-# ---------------------------------------------------------------------------
-# Invoice scheduler
-# ---------------------------------------------------------------------------
-INVOICE_MIN_BATCH      = 8
-INVOICE_MAX_BATCH      = 12
-INVOICE_INTERVAL_HOURS = 3
-INVOICE_DURATION_HOURS = 24
+                    return _original_request(self, method, new_url, *args, **kwargs)
+                
+                return _original_request(self, method, url, *args, **kwargs)
+                
+            requests.Session.request = _redirect_request
 
+        self.LOG_LEVEL = self._parse_log_level()
+        self.APP_PORT  = int(os.environ.get("APP_PORT", 8080))
+        self.STARKBANK_PROJECT_ID  = self._get_env_or_raise("STARKBANK_PROJECT_ID")
 
-def init_starkbank() -> starkbank.Project:
-    """
-    Authenticate with Stark Bank and register the Project as the global user.
+        starkbank_private_key_path = self._get_env_or_raise("STARKBANK_PRIVATE_KEY")
+        with open(starkbank_private_key_path, "r") as f:
+                self.STARKBANK_PRIVATE_KEY = f.read()
 
-    Keys are generated via ``starkbank.key.create()`` (starkbank-ecdsa lib).
-    The public key is uploaded to the Stark Bank dashboard once; the private
-    key is kept secret and set as STARKBANK_PRIVATE_KEY.
-    """
-    project = starkbank.Project(
-        environment=ENVIRONMENT,
-        id=PROJECT_ID,
-        private_key=PRIVATE_KEY,
-    )
-    starkbank.user = project
-    return project
+        self.STARKBANK_ENVIRONMENT = os.environ.get("STARKBANK_ENVIRONMENT", "sandbox")
+        
+        self._load_transfer_config()
+        self._load_invoice_config()
+
+    @staticmethod
+    def _get_env_or_raise(key):
+        value = os.environ.get(key)
+        if not value or not value.strip():
+            raise KeyError(f"❌ CONFIG_ERROR: Variável de ambiente '{key}' é obrigatória no .env")
+        return value
+
+    @staticmethod
+    def _load_strict_json(path, context_name):
+        if not os.path.exists(path):
+            raise FileNotFoundError(f"❌ CONFIG_ERROR: Arquivo '{context_name}' não encontrado em: {path}")
+        try:
+            with open(path, 'r') as f:
+                data = json.load(f)
+                if not data:
+                    raise ValueError(f"❌ CONFIG_ERROR: Arquivo '{path}' está vazio.")
+                return data
+        except json.JSONDecodeError as e:
+            raise ValueError(f"❌ CONFIG_ERROR: JSON inválido em '{path}': {e}")
+
+    @staticmethod
+    def _validate_keys(data, required_keys, source_name):
+        for key in required_keys:
+            if key not in data or data[key] is None:
+                raise KeyError(f"❌ CONFIG_ERROR: Chave '{key}' ausente no arquivo '{source_name}'")
+
+    def _parse_log_level(self):
+        raw_level = os.environ.get("LOG_LEVEL", "INFO").upper()
+        level_map = {
+            "DEBUG": logging.DEBUG,
+            "INFO": logging.INFO,
+            "WARNING": logging.WARNING,
+            "ERROR": logging.ERROR,
+            "CRITICAL": logging.CRITICAL
+        }
+        if raw_level not in level_map:
+            raise ValueError(f"❌ CONFIG_ERROR: LOG_LEVEL '{raw_level}' inválido no .env. "
+                             f"Use: DEBUG, INFO, WARNING, ERROR ou CRITICAL.")
+        return level_map[raw_level]
+
+    def _load_transfer_config(self):
+        path = os.environ.get("STARTBANK_TRANSFER_CONFIG_PATH", "./transfer_destination.json")
+        data = self._load_strict_json(path, "Transfer Destination")
+        self._validate_keys(data, 
+            ["bank_code", "branch_code", "account_number", "account_type", "name", "tax_id"], 
+            path
+        )
+        self.BANK_CODE      = data["bank_code"]
+        self.BRANCH_CODE    = data["branch_code"]
+        self.ACCOUNT_NUMBER = data["account_number"]
+        self.ACCOUNT_TYPE   = data["account_type"]
+        self.NAME           = data["name"]
+        self.TAX_ID         = data["tax_id"]
+
+    def _load_invoice_config(self):
+        path = os.environ.get("INVOICE_CONFIG_PATH", "./invoice_scheduler_config.json")
+        data = self._load_strict_json(path, "Invoice Scheduler")
+        self._validate_keys(data, 
+            ["min_batch", "max_batch", "interval_hours", "duration_hours"], 
+            path
+        )
+        self.INVOICE_MIN_BATCH      = int(data["min_batch"])
+        self.INVOICE_MAX_BATCH      = int(data["max_batch"])
+        self.INVOICE_INTERVAL_HOURS = int(data["interval_hours"])
+        self.INVOICE_DURATION_HOURS = int(data["duration_hours"])
+
+    def init_starkbank(self) -> starkbank.Project:
+        project = starkbank.Project(
+            environment=self.STARKBANK_ENVIRONMENT,
+            id=self.STARKBANK_PROJECT_ID,
+            private_key=self.STARKBANK_PRIVATE_KEY,
+        )
+        starkbank.user = project
+        return project
+
+config = AppConfig()

@@ -1,5 +1,3 @@
-"""tests/test_invoices.py — covers app/invoices.py"""
-
 from unittest.mock import MagicMock, patch
 
 import pytest
