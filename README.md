@@ -23,32 +23,32 @@ encaminha os pagamentos recebidos via Transfer.
 ┌─────────────────────────────────────────────────────────────┐
 │                        main.py                              │
 │                                                             │
-│   ┌─────────────────┐         ┌─────────────────────────┐  │
-│   │   Scheduler      │         │   Flask (webhook server) │  │
-│   │  (background     │         │                         │  │
-│   │   thread)        │         │   GET  /health           │  │
-│   │                 │         │   POST /webhook          │  │
-│   │  every 3h ──────┼────┐    └────────────┬────────────┘  │
-│   └─────────────────┘    │                 │               │
-│                           │                 │               │
-└───────────────────────────┼─────────────────┼───────────────┘
-                            │                 │
-                            ▼                 ▼
+│   ┌─────────────────┐         ┌─────────────────────────┐   │
+│   │   Scheduler     │         │   Flask (webhook server)│   │
+│   │  (background    │         │                         │   │
+│   │   thread)       │         │   GET  /health          │   │
+│   │                 │         │   POST /webhook         │   │
+│   │  every 3h ──────┼────┐    └────────────┬────────────┘   │
+│   └─────────────────┘    │                 │                │
+│                          │                 │                │
+└──────────────────────────┼─────────────────┼────────────-───┘
+                           │                 │
+                           ▼                 ▼
               ┌─────────────────┐   ┌──────────────────────┐
-              │  invoices.py    │   │    webhook.py         │
-              │                 │   │                       │
-              │  starkbank      │   │  starkbank            │
-              │  .invoice       │   │  .event.parse()       │
-              │  .create()      │   │  (verifica ECDSA)     │
+              │  invoices.py    │   │    webhook.py        │
+              │                 │   │                      │
+              │  starkbank      │   │  starkbank           │
+              │  .invoice       │   │  .event.parse()      │
+              │  .create()      │   │  (verifica ECDSA)    │
               └────────┬────────┘   └──────────┬───────────┘
-                       │                        │
-                       ▼                        ▼ log.type == "credited"
+                       │                       │
+                       ▼                       ▼ log.type == "credited"
               ┌─────────────────┐   ┌──────────────────────┐
-              │  Stark Bank API │   │   transfers.py        │
-              │  (Sandbox)      │   │                       │
-              │                 │   │  starkbank            │
-              │  auto-pays some │   │  .transfer.create()   │
-              │  invoices  ─────┼──►│                       │
+              │  Stark Bank API │   │   transfers.py       │
+              │  (Sandbox)      │   │                      │
+              │                 │   │  starkbank           │
+              │  auto-pays some │   │  .transfer.create()  │
+              │  invoices  ─────┼──►│                      │
               └─────────────────┘   └──────────────────────┘
 ```
 
@@ -58,18 +58,18 @@ encaminha os pagamentos recebidos via Transfer.
 
 ```
  App                    Stark Bank API            Stark Bank Sandbox
-  │                          │                           │
-  │── starkbank.invoice ─────►│                           │
-  │   .create([8..12])        │                           │
-  │◄── invoices criadas ──────│                           │
-  │                           │                           │
-  │         (a cada 3h por 24h, acima se repete)          │
-  │                           │                           │
-  │                           │◄── pagamento automático ──│
-  │                           │    (Sandbox paga          │
-  │                           │     algumas invoices)     │
-  │                           │                           │
-  │◄── POST /webhook ─────────│                           │
+  │                            │                           │
+  │── starkbank.invoice ─────-►│                           │
+  │   .create([8..12])         │                           │
+  │◄── invoices criadas ──────-│                           │
+  │                            │                           │
+  │          (a cada 3h por 24h, acima se repete)          │
+  │                            │                           │
+  │                            │◄── pagamento automático ──│
+  │                            │    (Sandbox paga          │
+  │                            │     algumas invoices)     │
+  │                            │                           │
+  │◄── POST /webhook ─────────-│                           │
   │    Digital-Signature: xyz  │                           │
   │    { subscription:         │                           │
   │      "invoice",            │                           │
@@ -77,14 +77,14 @@ encaminha os pagamentos recebidos via Transfer.
   │      "credited",           │                           │
   │      invoice.amount: N,    │                           │
   │      invoice.fee: F }      │                           │
-  │                           │                           │
+  │                            │                           │
   │  starkbank.event.parse()   │                           │
   │  (verifica assinatura)     │                           │
-  │                           │                           │
+  │                            │                           │
   │── starkbank.transfer ─────►│                           │
   │   .create([amount=N-F])    │                           │
   │   → Stark Bank S.A.        │                           │
-  │                           │                           │
+  │                            │                           │
   │── HTTP 200 ───────────────►│                           │
 ```
 
