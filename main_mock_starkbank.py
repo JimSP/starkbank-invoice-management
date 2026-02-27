@@ -14,16 +14,6 @@ app = Flask(__name__)
 mock_private_key, mock_public_key = starkbank.key.create()
 
 
-def sign_payload(payload_string):
-
-    with open(config.STARKBANK_PRIVATE_KEY, "r") as f:
-        key_contents = f.read()
-
-    private_key_obj = PrivateKey.fromPem(key_contents)
-
-    return Ecdsa.sign(payload_string, private_key_obj).toBase64()
-
-
 @app.route("/v2/public-key", methods=["GET"])
 def get_public_key():
     """O SDK do seu app vai chamar isso para validar o Webhook."""

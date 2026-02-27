@@ -88,7 +88,6 @@ def _process(item: dict) -> None:
     is_mock: bool  = item["is_mock"]
 
     event: Any = None
-    from app.config import config
     try:
         if is_mock:
             resp = requests.get("http://127.0.0.1:9090/v2/public-key").json()

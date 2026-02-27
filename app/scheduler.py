@@ -46,18 +46,13 @@ def start_scheduler() -> BackgroundScheduler:
 
     scheduler.add_job(
         func=_job,
-        id="invoice_batch_initial",
-        name="First invoice batch (immediate)",
-        max_instances=1,
-    )
-    scheduler.add_job(
-        func=_job,
         trigger=IntervalTrigger(hours=config.INVOICE_INTERVAL_HOURS, timezone="UTC"),
         id="invoice_batch",
         name=f"Invoice batch every {config.INVOICE_INTERVAL_HOURS}h",
         end_date=end_time,
         max_instances=1,
         coalesce=True,
+        next_run_time=datetime.now(tz=timezone.utc)
     )
 
     scheduler.start()

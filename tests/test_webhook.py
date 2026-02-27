@@ -5,11 +5,13 @@ import pytest
 
 from app.webhook import app
 from app.state import MockInvoice, MockLog, MockEvent, webhook_history, webhook_stats
+from app.database import Base, engine
 
 
 @pytest.fixture()
 def client():
     app.config["TESTING"] = True
+    Base.metadata.create_all(engine)
     with app.test_client() as c:
         webhook_history.clear()
         webhook_stats.update(
@@ -19,6 +21,7 @@ def client():
             last_event_time=None,
         )
         yield c
+    Base.metadata.drop_all(engine)
 
 
 class TestMockDataclasses:
@@ -331,7 +334,7 @@ class TestDashboard:
         assert b"timeout" in resp.data
         job_history.clear()
 
-    
+
     @patch("app.webhook.get_invoice_stats")
     def test_stats_volume_displayed(self, mock_stats, client, monkeypatch):
         monkeypatch.setenv("USE_MOCK_API", "false")

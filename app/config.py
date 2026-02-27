@@ -22,8 +22,6 @@ class AppConfig:
         with open(starkbank_public_key_path, "r") as f:
             self.STARKBANK_PUBLIC_KEY = f.read()
 
-        print(f"STARKBANK_PUBLIC_KEY: {self.STARKBANK_PUBLIC_KEY}")
-
         self.STARKBANK_ENVIRONMENT = os.environ.get("STARKBANK_ENVIRONMENT", "sandbox")
         self.USE_MOCK_API = os.environ.get("USE_MOCK_API", "false").lower() == "true"
         
