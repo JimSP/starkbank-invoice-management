@@ -99,6 +99,7 @@ class AppConfig:
         self.INVOICE_MAX_BATCH      = int(data["max_batch"])
         self.INVOICE_INTERVAL_HOURS = int(data["interval_hours"])
         self.INVOICE_DURATION_HOURS = int(data["duration_hours"])
+        self.RECONCILIATION_INTERVAL_MINUTES = int(data.get("reconciliation_interval_minutes", 15))
 
 
     def init_starkbank(self) -> starkbank.Project:

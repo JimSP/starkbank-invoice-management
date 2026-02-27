@@ -8,6 +8,7 @@ import starkbank.error
 from ellipticcurve.ecdsa import Ecdsa as _Ecdsa
 from ellipticcurve.privateKey import PrivateKey
 
+from tests.conftest import _make_session_not_processed
 import app.queue_worker as worker_module
 from app.queue_worker import (
     _dispatch_invoice,
@@ -51,7 +52,9 @@ def keypair(tmp_path):
 
 
 class TestDispatchInvoice:
-    def test_chama_forward_payment_com_valores_corretos(self):
+    @patch("app.queue_worker.get_session")
+    def test_chama_forward_payment_com_valores_corretos(self, mock_gs):
+        mock_gs.return_value = _make_session_not_processed()
         log = _make_log()
         mock_transfer = MagicMock(id="transf_abc")
 
@@ -67,7 +70,9 @@ class TestDispatchInvoice:
         mock_mark.assert_called_once_with(invoice_id="inv_001", transfer_id="transf_abc")
 
 
-    def test_transfer_id_nulo_quando_forward_retorna_none(self):
+    @patch("app.queue_worker.get_session")
+    def test_transfer_id_nulo_quando_forward_retorna_none(self, mock_gs):
+        mock_gs.return_value = _make_session_not_processed()
         log = _make_log()
 
         with patch("app.queue_worker.forward_payment", return_value=None), \
@@ -86,7 +91,40 @@ class TestDispatchInvoice:
         mock_fp.assert_not_called()
 
 
-    def test_falha_no_banco_nao_propaga_excecao(self):
+    @patch("app.queue_worker.get_session")
+    def test_excecao_ao_verificar_status_antes_do_dispatch_loga_erro_e_retorna(self, mock_gs, caplog):
+        mock_gs.side_effect = Exception("Erro simulado de conexão/leitura no DB")
+        log = _make_log()
+
+        with caplog.at_level(logging.ERROR, logger="app.queue_worker"), \
+             patch("app.queue_worker.forward_payment") as mock_fp:
+            _dispatch_invoice(log)
+
+        assert "Falha ao verificar status da invoice" in caplog.text
+        assert "inv_001" in caplog.text
+        mock_fp.assert_not_called()
+
+
+    @patch("app.queue_worker.get_session")
+    def test_ignora_invoice_ja_processada(self, mock_gs):
+        mock_session_ctx = MagicMock()
+        mock_session = MagicMock()
+        mock_record = MagicMock(status="recebido")
+        mock_session.get.return_value = mock_record
+        mock_session_ctx.__enter__.return_value = mock_session
+        mock_gs.return_value = mock_session_ctx
+
+        log = _make_log()
+
+        with patch("app.queue_worker.forward_payment") as mock_fp:
+            _dispatch_invoice(log)
+
+        mock_fp.assert_not_called()
+
+
+    @patch("app.queue_worker.get_session")
+    def test_falha_no_banco_nao_propaga_excecao(self, mock_gs):
+        mock_gs.return_value = _make_session_not_processed()
         log = _make_log()
 
         with patch("app.queue_worker.forward_payment", return_value=MagicMock(id="t1")), \
@@ -94,12 +132,17 @@ class TestDispatchInvoice:
             _dispatch_invoice(log)
 
 
-    def test_falha_no_banco_loga_erro(self, caplog):
+    @patch("app.queue_worker.forward_payment")
+    @patch("app.queue_worker.mark_invoice_received")
+    @patch("app.queue_worker.get_session")
+    def test_falha_no_banco_loga_erro(self, mock_gs, mock_mark, mock_fwd, caplog):
+        mock_gs.return_value = _make_session_not_processed()
+        mock_fwd.return_value = MagicMock(id="t1")
+        mock_mark.side_effect = Exception("db error")
+        
         log = _make_log()
 
-        with caplog.at_level(logging.ERROR, logger="app.queue_worker"), \
-             patch("app.queue_worker.forward_payment", return_value=MagicMock(id="t1")), \
-             patch("app.queue_worker.mark_invoice_received", side_effect=Exception("db error")):
+        with caplog.at_level(logging.ERROR, logger="app.queue_worker"):
             _dispatch_invoice(log)
 
         assert "Falha ao atualizar status da invoice" in caplog.text
@@ -173,6 +216,7 @@ class TestProcess:
 
         mock_rh.assert_called_once()
 
+
     @patch("requests.get")
     def test_mock_assinatura_base64_invalida_loga_warning(self, mock_get, caplog, keypair):
         priv, _ = keypair
@@ -186,6 +230,7 @@ class TestProcess:
 
         assert "assinatura inválida" in caplog.text
         mock_rh.assert_not_called()
+
 
     @patch("requests.get")
     def test_mock_assinatura_de_outra_chave_loga_warning(self, mock_get, caplog, keypair):

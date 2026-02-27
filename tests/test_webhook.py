@@ -3,6 +3,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from tests.conftest import _make_session_not_processed
+
 from app.webhook import app
 from app.state import MockInvoice, MockLog, MockEvent, webhook_history, webhook_stats
 from app.database import Base, engine
@@ -164,7 +166,9 @@ class TestRecordAndHandle:
 
 class TestDispatchInvoice:
     @patch("app.queue_worker.forward_payment")
-    def test_non_credited_log_does_not_forward(self, mock_fwd):
+    @patch("app.queue_worker.get_session")
+    def test_non_credited_log_does_not_forward(self, mock_fwd, mock_gs):
+        mock_gs.return_value = _make_session_not_processed()
         from app.queue_worker import _dispatch_invoice
         invoice = MagicMock(id="inv_x", amount=1000, fee=10)
         log = MagicMock(type="created", invoice=invoice)
@@ -173,14 +177,16 @@ class TestDispatchInvoice:
 
 
     @patch("app.queue_worker.forward_payment")
-    def test_credited_log_forwards_payment(self, mock_fwd):
-        from app.queue_worker import _dispatch_invoice
-        invoice = MagicMock(id="inv_y", amount=3000, fee=30)
-        log = MagicMock(type="credited", invoice=invoice)
-        _dispatch_invoice(log)
-        mock_fwd.assert_called_once_with(
-            invoice_id="inv_y", credited_amount=3000, fee=30
-        )
+    @patch("app.queue_worker.get_session")
+    def test_credited_log_forwards_payment(self, mock_gs, mock_fwd):
+       mock_gs.return_value = _make_session_not_processed()
+       from app.queue_worker import _dispatch_invoice
+       invoice = MagicMock(id="inv_y", amount=3000, fee=30)
+       log = MagicMock(type="credited", invoice=invoice)
+       _dispatch_invoice(log)
+       mock_fwd.assert_called_once_with(
+           invoice_id="inv_y", credited_amount=3000, fee=30
+       )
 
 
 class TestProcessExceptionBranch:

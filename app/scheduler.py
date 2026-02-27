@@ -7,6 +7,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 
 from app.config import config
 from app.invoices import issue_batch
+from app.reconciliation import reconcile_paid_invoices
 
 
 logger = logging.getLogger(__name__)
@@ -52,13 +53,24 @@ def start_scheduler() -> BackgroundScheduler:
         end_date=end_time,
         max_instances=1,
         coalesce=True,
-        next_run_time=datetime.now(tz=timezone.utc)
+        next_run_time=datetime.now(tz=timezone.utc),
+    )
+
+    scheduler.add_job(
+        func=reconcile_paid_invoices,
+        trigger=IntervalTrigger(minutes=config.RECONCILIATION_INTERVAL_MINUTES, timezone="UTC"),
+        id="invoice_reconciliation",
+        name=f"Invoice reconciliation every {config.RECONCILIATION_INTERVAL_MINUTES}min",
+        max_instances=1,
+        coalesce=True,
+        next_run_time=datetime.now(tz=timezone.utc) + timedelta(minutes=5),
     )
 
     scheduler.start()
     logger.info(
-        "Scheduler started — batches every %dh until %s UTC.",
+        "Scheduler started — batches every %dh until %s UTC | reconciliation every %dmin.",
         config.INVOICE_INTERVAL_HOURS,
         end_time.strftime("%Y-%m-%dT%H:%M:%S"),
+        config.RECONCILIATION_INTERVAL_MINUTES,
     )
     return scheduler

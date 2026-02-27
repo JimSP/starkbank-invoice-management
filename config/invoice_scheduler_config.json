@@ -2,5 +2,6 @@
     "min_batch": 8,
     "max_batch": 12,
     "interval_hours": 3,
-    "duration_hours": 24
+    "duration_hours": 24,
+    "reconciliation_interval_minutes": 15
 }

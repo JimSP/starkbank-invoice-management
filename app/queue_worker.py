@@ -12,7 +12,7 @@ from ellipticcurve.signature import Signature
 
 from app.transfers import forward_payment
 from app.state import MockEvent, webhook_history, webhook_stats
-from app.database import mark_invoice_received
+from app.database import get_session, InvoiceRecord, mark_invoice_received
 
 import requests
 
@@ -57,6 +57,22 @@ def _dispatch_invoice(log: Any) -> None:
     invoice = log.invoice
     if log.type != "credited":
         logger.debug("Invoice %s — log type '%s' ignorado.", invoice.id, log.type)
+        return
+
+    try:
+        with get_session() as session:
+            record = session.get(InvoiceRecord, str(invoice.id))
+            if record is not None and record.status == "recebido":
+                logger.info(
+                    "Invoice %s já processada (reconciliação antecipou o webhook) — ignorando.",
+                    invoice.id,
+                )
+                return
+    except Exception as exc:
+        logger.error(
+            "Falha ao verificar status da invoice '%s' antes do dispatch: %s",
+            invoice.id, exc, exc_info=True,
+        )
         return
 
     logger.info(
