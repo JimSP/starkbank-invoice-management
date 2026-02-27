@@ -1,4 +1,5 @@
 import logging
+from collections import deque
 from datetime import datetime, timedelta, timezone
 
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -7,14 +8,35 @@ from apscheduler.triggers.interval import IntervalTrigger
 from app.config import config
 from app.invoices import issue_batch
 
+
 logger = logging.getLogger(__name__)
+job_history = deque(maxlen=50)
 
 
 def _job() -> None:
     logger.info("Scheduler tick — issuing invoice batch …")
+    
+    execution_entry = {
+        "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "status": "processing",
+        "invoices_issued": 0,
+        "ids": []
+    }
+    job_history.appendleft(execution_entry)
+
     try:
-        issue_batch()
-    except Exception as exc:  # noqa: BLE001
+        created = issue_batch()
+        
+        execution_entry.update({
+            "status": "success",
+            "invoices_issued": len(created),
+            "ids": [i.id for i in created]
+        })
+    except Exception as exc:
+        execution_entry.update({
+            "status": "error",
+            "error": str(exc)
+        })
         logger.error("Invoice batch failed: %s", exc)
 
 

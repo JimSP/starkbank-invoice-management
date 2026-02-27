@@ -1,22 +1,30 @@
-"""
-mock_starkbank_api.py
-=====================
-Servidor Flask que simula a API da Stark Bank para testes locais (E2E).
-Roda na porta 9090.
-"""
 import time
 import json
 import threading
 import requests
 from flask import Flask, jsonify, request
-import ellipticcurve
+from ellipticcurve.ecdsa import Ecdsa
+from ellipticcurve.publicKey import PublicKey
+from ellipticcurve.signature import Signature
+from ellipticcurve.privateKey import PrivateKey
+
 import starkbank
 
-app = Flask(__name__)
+from app.config import config
 
-# 1. Geramos um par de chaves ECDSA exclusivas para o nosso Servidor Mock
-# O mock vai assinar os webhooks com a Private, e seu app vai baixar a Public.
+app = Flask(__name__)
 mock_private_key, mock_public_key = starkbank.key.create()
+
+
+def sign_payload(payload_string):
+
+    with open(config.STARKBANK_PRIVATE_KEY, "r") as f:
+        key_contents = f.read()
+
+    private_key_obj = PrivateKey.fromPem(key_contents)
+    
+    return Ecdsa.sign(payload_string, private_key_obj).toBase64()
+
 
 @app.route("/v2/public-key", methods=["GET"])
 def get_public_key():
@@ -77,8 +85,8 @@ def trigger_webhook(invoice):
     payload_str = json.dumps(payload, separators=(',', ':'))
     
     # Assina usando a chave PRIVADA do Mock
-    priv_key_obj = ellipticcurve.privateKey.PrivateKey.fromPem(mock_private_key)
-    signature = ellipticcurve.ecdsa.Ecdsa.sign(payload_str, priv_key_obj).toBase64()
+    priv_key_obj = PrivateKey.fromPem(mock_private_key)
+    signature = Ecdsa.sign(payload_str, priv_key_obj).toBase64()
 
     try:
         requests.post(

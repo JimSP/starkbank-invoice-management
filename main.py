@@ -22,6 +22,11 @@ logging.basicConfig(
 )
 
 def main() -> None:  # pragma: no cover
+
+    if config.USE_MOCK_API:
+        from app.mock_interceptor import setup_mock_interceptor
+        setup_mock_interceptor()
+
     config.init_starkbank()
 
     scheduler = start_scheduler()

@@ -4,7 +4,6 @@ import pytest
 from unittest.mock import MagicMock, patch
 import starkbank
 
-# Importamos a Classe e a instância global
 from app.config import AppConfig, config
 
 def test_load_strict_json_file_not_found():
@@ -19,7 +18,7 @@ def test_load_strict_json_invalid_format(tmp_path):
 
 def test_load_strict_json_empty_file(tmp_path):
     p = tmp_path / "empty.json"
-    p.write_text("{}") # JSON válido, mas dicionário vazio
+    p.write_text("{}")
     with pytest.raises(ValueError, match="está vazio"):
         AppConfig._load_strict_json(str(p), "Teste")
 
@@ -39,7 +38,6 @@ def test_validate_keys_missing_key():
     with pytest.raises(KeyError, match="ausente no arquivo"):
         AppConfig._validate_keys(data, ["missing_key"], "test_file.json")
 
-
 def test_parse_log_level_invalid(monkeypatch):
     monkeypatch.setenv("LOG_LEVEL", "NIVEL_INVENTADO")
     dummy = object.__new__(AppConfig)
@@ -49,7 +47,6 @@ def test_parse_log_level_invalid(monkeypatch):
 def test_config_invoice_int_conversion_error(tmp_path, monkeypatch):
     monkeypatch.setenv("STARKBANK_PROJECT_ID", "dummy_id")
     
-    # 1. NOVO: Criamos um arquivo temporário simulando o certificado .pem
     key_file = tmp_path / "private_key.pem"
     key_file.write_text("conteudo_da_chave_falsa")
     monkeypatch.setenv("STARKBANK_PRIVATE_KEY", str(key_file))
@@ -63,7 +60,8 @@ def test_config_invoice_int_conversion_error(tmp_path, monkeypatch):
 
     p = tmp_path / "bad_invoice.json"
     p.write_text('{"min_batch": "TEXTO_NO_LUGAR_DE_NUMERO", "max_batch": 12, "interval_hours": 3, "duration_hours": 24}')
-    monkeypatch.setenv("INVOICE_CONFIG_PATH", str(p))
+    
+    monkeypatch.setenv("INVOICE_SCHEDULER_CONFIG_PATH", str(p))
 
     from app.config import AppConfig
     with pytest.raises(ValueError):
@@ -90,33 +88,3 @@ class TestInitStarkbank:
                 id=config.STARKBANK_PROJECT_ID,
                 private_key=config.STARKBANK_PRIVATE_KEY,
             )
-    
-def test_use_mock_api_redirection(tmp_path, monkeypatch):
-    monkeypatch.setenv("STARKBANK_PROJECT_ID", "dummy_id")
-        
-    key_file = tmp_path / "private_key.pem"
-    key_file.write_text("conteudo_da_chave")
-    monkeypatch.setenv("STARKBANK_PRIVATE_KEY", str(key_file))
-
-    t = tmp_path / "transfer.json"
-    t.write_text(json.dumps({
-        "bank_code": "1", "branch_code": "1", "account_number": "1", 
-        "account_type": "1", "name": "1", "tax_id": "1"
-    }))
-    monkeypatch.setenv("STARTBANK_TRANSFER_CONFIG_PATH", str(t))
-
-    i = tmp_path / "invoice.json"
-    i.write_text(json.dumps({
-        "min_batch": 1, "max_batch": 2, "interval_hours": 3, "duration_hours": 24
-    }))
-    monkeypatch.setenv("INVOICE_CONFIG_PATH", str(i))
-
-
-    monkeypatch.setenv("USE_MOCK_API", "true")
-
-
-    from app.config import AppConfig
-    import starkbank.utils.rest
-    AppConfig(env_file=".env.test")
-
-    assert starkbank.utils.rest.rest.endpoint == "http://127.0.0.1:9090/v2"

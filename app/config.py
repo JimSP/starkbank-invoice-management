@@ -8,34 +8,6 @@ class AppConfig:
     def __init__(self, env_file=".env"):
         load_dotenv(env_file)
 
-        if os.environ.get("USE_MOCK_API", "false").lower() == "true":
-            print("⚠️  ATENÇÃO: Redirecionando tráfego HTTP para MOCK API (localhost:9090)")
-            import requests
-            
-            _original_request = requests.Session.request
-
-            def _redirect_request(self, method, url, *args, **kwargs):
-                if "starkbank.com" in url:
-                    import requests
-                    from urllib.parse import urlparse, urlunparse
-                    parsed = urlparse(url)
-                    
-                    clean_path = parsed.path.replace("//", "/")
-                    new_url = urlunparse((
-                        "http",
-                        "127.0.0.1:9090", 
-                        clean_path,
-                        parsed.params,          
-                        parsed.query,           
-                        parsed.fragment         
-                    ))
-
-                    return _original_request(self, method, new_url, *args, **kwargs)
-                
-                return _original_request(self, method, url, *args, **kwargs)
-                
-            requests.Session.request = _redirect_request
-
         self.LOG_LEVEL = self._parse_log_level()
         self.APP_PORT  = int(os.environ.get("APP_PORT", 8080))
         self.STARKBANK_PROJECT_ID  = self._get_env_or_raise("STARKBANK_PROJECT_ID")
@@ -45,6 +17,7 @@ class AppConfig:
                 self.STARKBANK_PRIVATE_KEY = f.read()
 
         self.STARKBANK_ENVIRONMENT = os.environ.get("STARKBANK_ENVIRONMENT", "sandbox")
+        self.USE_MOCK_API = os.environ.get("USE_MOCK_API", "false").lower() == "true"
         
         self._load_transfer_config()
         self._load_invoice_config()
@@ -90,7 +63,7 @@ class AppConfig:
         return level_map[raw_level]
 
     def _load_transfer_config(self):
-        path = os.environ.get("STARTBANK_TRANSFER_CONFIG_PATH", "./transfer_destination.json")
+        path = os.environ.get("STARTBANK_TRANSFER_CONFIG_PATH", "config/transfer_destination.json")
         data = self._load_strict_json(path, "Transfer Destination")
         self._validate_keys(data, 
             ["bank_code", "branch_code", "account_number", "account_type", "name", "tax_id"], 
@@ -104,7 +77,7 @@ class AppConfig:
         self.TAX_ID         = data["tax_id"]
 
     def _load_invoice_config(self):
-        path = os.environ.get("INVOICE_CONFIG_PATH", "./invoice_scheduler_config.json")
+        path = os.environ.get("INVOICE_SCHEDULER_CONFIG_PATH", "config/invoice_scheduler_config.json")
         data = self._load_strict_json(path, "Invoice Scheduler")
         self._validate_keys(data, 
             ["min_batch", "max_batch", "interval_hours", "duration_hours"], 
