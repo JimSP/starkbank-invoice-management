@@ -57,7 +57,7 @@ Integração Python com a API da Stark Bank que emite Invoices periodicamente, p
 
 ### 2.1 Visão geral dos módulos
 
-```
+'''
 app/
 ├── config.py           — Carregamento e validação de toda a configuração (env + JSON)
 ├── database.py         — ORM SQLAlchemy, init_db(), save_invoices(), mark_invoice_received()
@@ -69,20 +69,20 @@ app/
 ├── state.py            — Globals de memória (webhook_history, webhook_stats) e MockEvent/MockLog
 ├── webhook.py          — Flask app: POST /webhook, GET /health, GET / (dashboard)
 └── mock_interceptor.py — Monkey-patch de requests.Session para redirecionar tráfego ao mock local
-```
+'''
 
 Arquivos raiz:
 
-```
+'''
 main.py                 — Entry point: orquestra init_db → mock_interceptor → init_starkbank → worker → scheduler → Flask
 main_mock_starkbank.py  — Servidor Flask falso que simula a API da Stark Bank (porta 9090)
 keygen.py               — Gera par de chaves ECDSA e salva em disco
 setup_webhook.py        — Registra (ou verifica) o webhook na conta Stark Bank (executado 1x)
-```
+'''
 
 ### 2.2 Diagrama de componentes
 
-```
+'''
 ┌────────────────────────────────────────────────────────────────────┐
 │                            main.py                                 │
 │                                                                    │
@@ -125,11 +125,11 @@ setup_webhook.py        — Registra (ou verifica) o webhook na conta Stark Bank
   │  "enviado"    │               │  status:         │
   └───────────────┘               │  "recebido"      │
                                   └──────────────────┘
-```
+'''
 
 ### 2.3 Fluxo de dados completo
 
-```
+'''
  App                         Stark Bank API              Stark Bank Sandbox
   │                                │                              │
   │─── invoice.create([8..12]) ───►│                              │
@@ -162,7 +162,7 @@ setup_webhook.py        — Registra (ou verifica) o webhook na conta Stark Bank
   │─── mark_invoice_received()     │                              │
   │    status="recebido"           │                              │
   │    transfer_id=<id>  [SQLite]  │                              │
-```
+'''
 
 ### 2.4 Modelo de dados
 
@@ -189,7 +189,7 @@ O webhook endpoint (`POST /webhook`) **nunca** bloqueia na verificação da assi
 
 Um daemon thread separado (`event-queue-worker`) consome a fila de forma contínua:
 
-```
+'''
 POST /webhook
      │
      │ content + signature + is_mock
@@ -213,7 +213,7 @@ POST /webhook
          _dispatch_invoice(log)
                ├─ forward_payment(amount, fee) → starkbank.transfer.create()
                └─ mark_invoice_received(invoice_id, transfer_id) → SQLite
-```
+'''
 
 O histórico em memória (`webhook_history`, `webhook_stats` em `state.py`) é exibido no dashboard e sobrevive apenas à sessão do processo. O estado durável (ciclo de vida das invoices) está exclusivamente no SQLite.
 
@@ -226,6 +226,7 @@ O modo mock permite executar o sistema completo **sem credenciais reais** e **se
 **Componentes do modo mock:**
 
 `main_mock_starkbank.py` — servidor na porta `9090` que implementa:
+
 - `POST /v2/invoice` — finge criar invoices e agenda um webhook em 3 segundos
 - `POST /v2/transfer` — finge criar transfers e loga no stdout
 - `GET /v2/public-key` — retorna a chave pública mock para validação ECDSA
@@ -241,6 +242,7 @@ O modo mock permite executar o sistema completo **sem credenciais reais** e **se
 Acessível em `GET /` após iniciar a aplicação. Atualiza automaticamente a cada 15 segundos.
 
 **Painel de métricas (dados do SQLite):**
+
 - Invoices recebidas / total emitidas
 - Volume financeiro processado (R$)
 - Contagem de erros e rejeições
@@ -261,27 +263,27 @@ Acessível em `GET /` após iniciar a aplicação. Atualiza automaticamente a ca
 
 ### 6.2 Gerar par de chaves ECDSA
 
-```bash
+'''bash
 python keygen.py keys/
-```
+'''
 
 Isso salva `keys/private-key.pem` e `keys/public-key.pem`. Faça upload do conteúdo de `public-key.pem` no painel:
 
-```
+'''
 Menu → Integrações → Novo Projeto → campo "Chave Pública"
-```
+'''
 
 Anote o **Project ID** gerado.
 
 ### 6.3 Configurar variáveis de ambiente
 
-```bash
+'''bash
 cp .env.example .env
-```
+'''
 
 Edite `.env`:
 
-```env
+'''env
 # Credenciais Stark Bank
 STARKBANK_PROJECT_ID=seu_project_id_aqui
 STARKBANK_PRIVATE_KEY=keys/private-key.pem
@@ -301,7 +303,7 @@ USE_MOCK_API=false
 # Caminhos dos arquivos de configuração JSON
 STARTBANK_TRANSFER_CONFIG_PATH=config/transfer_destination.json
 INVOICE_SCHEDULER_CONFIG_PATH=config/invoice_scheduler_config.json
-```
+'''
 
 > **Segurança:** `STARKBANK_PRIVATE_KEY` aponta para o **caminho** do arquivo PEM, não para o conteúdo. O arquivo é lido em runtime por `AppConfig`. Nunca comite o `.pem` ou o `.env` no repositório.
 
@@ -309,7 +311,7 @@ INVOICE_SCHEDULER_CONFIG_PATH=config/invoice_scheduler_config.json
 
 **`config/transfer_destination.json`** — destino de todas as transfers:
 
-```json
+'''json
 {
     "bank_code":      "20018183",
     "branch_code":    "0001",
@@ -318,18 +320,18 @@ INVOICE_SCHEDULER_CONFIG_PATH=config/invoice_scheduler_config.json
     "name":           "Stark Bank S.A.",
     "tax_id":         "20.018.183/0001-80"
 }
-```
+'''
 
 **`config/invoice_scheduler_config.json`** — parametrização do scheduler:
 
-```json
+'''json
 {
     "min_batch":       8,
     "max_batch":       12,
     "interval_hours":  3,
     "duration_hours":  24
 }
-```
+'''
 
 | Campo | Descrição |
 |---|---|
@@ -342,17 +344,17 @@ Com a configuração padrão: lotes de 8–12 invoices, emitidos a cada 3 horas,
 
 ### 6.5 Instalar dependências
 
-```bash
+'''bash
 python -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-```
+'''
 
 ### 6.6 Criar estrutura de diretórios
 
-```bash
+'''bash
 mkdir -p data config keys
-```
+'''
 
 O SQLite precisa que o diretório `data/` exista antes do primeiro `init_db()`. Os arquivos JSON vão em `config/` e os PEMs em `keys/`.
 
@@ -360,27 +362,27 @@ O SQLite precisa que o diretório `data/` exista antes do primeiro `init_db()`. 
 
 Execute este script **uma única vez** após o deploy (ou com ngrok ativo localmente):
 
-```bash
+'''bash
 # Com ngrok:
 ngrok http 8080
 python setup_webhook.py https://abc123.ngrok.io/webhook
 
 # Com URL de produção:
 python setup_webhook.py https://seu-dominio.com/webhook
-```
+'''
 
 O script verifica se o webhook já está registrado antes de criar um novo. Para listar todos os webhooks ativos:
 
-```bash
+'''bash
 python setup_webhook.py https://qualquer-url.com/webhook
 # Ao final, lista todos os webhooks registrados na conta
-```
+'''
 
 ### 6.8 Executar
 
-```bash
+'''bash
 python main.py
-```
+'''
 
 Sequência de inicialização:
 
@@ -398,13 +400,13 @@ O primeiro lote de invoices é disparado imediatamente no startup, seguido de lo
 
 ## 7. Testes
 
-```bash
+'''bash
 pytest
-```
+'''
 
 Todos os módulos em `app/` têm cobertura de 100%. As chamadas à API da Stark Bank são mockadas — nenhuma credencial real é necessária para rodar os testes.
 
-```
+'''
 Name                    Stmts   Miss  Cover
 -------------------------------------------
 app/__init__.py             0      0   100%
@@ -420,14 +422,14 @@ app/transfers.py           XX      0   100%
 app/webhook.py             XX      0   100%
 -------------------------------------------
 TOTAL                     XXX      0   100%
-```
+'''
 
 Para rodar com relatório de cobertura HTML:
 
-```bash
+'''bash
 pytest --cov=app --cov-report=html
 open htmlcov/index.html
-```
+'''
 
 ---
 
@@ -437,19 +439,19 @@ Para desenvolver e testar sem depender do ambiente sandbox da Stark Bank:
 
 **Terminal 1 — servidor mock da Stark Bank:**
 
-```bash
+'''bash
 # Coloque suas credenciais reais no .env mesmo em modo mock
 # O mock server usa a chave privada configurada para assinar os webhooks
 python main_mock_starkbank.py
 # 🏦 STARK BANK MOCK SERVER INICIADO NA PORTA 9090
-```
+'''
 
 **Terminal 2 — aplicação com mock ativado:**
 
-```bash
+'''bash
 USE_MOCK_API=true python main.py
 # ou configure USE_MOCK_API=true no .env
-```
+'''
 
 **O que acontece:**
 
@@ -468,9 +470,9 @@ O fluxo completo — emissão, pagamento, webhook, validação ECDSA, transfer �
 
 ### 9.1 Deploy via rsync + Systemd
 
-```bash
+'''bash
 bash deploy.sh
-```
+'''
 
 O script executa:
 
@@ -482,9 +484,9 @@ O script executa:
 
 O serviço Systemd é configurado com `Restart=always` e `RestartSec=5`. Para acompanhar os logs em produção:
 
-```bash
+'''bash
 sudo journalctl -u starkbank -f
-```
+'''
 
 **Pré-requisito:** configure as variáveis no `.env` local antes de rodar o deploy. O `.env` é sincronizado via rsync com permissões `600`.
 
@@ -492,9 +494,9 @@ sudo journalctl -u starkbank -f
 
 Após a propagação DNS do subdomínio para o IP do servidor:
 
-```bash
+'''bash
 bash setup_server.sh
-```
+'''
 
 O script:
 
@@ -506,11 +508,11 @@ O script:
 
 Após a execução:
 
-```
+'''
 Webhook URL:  https://seu-dominio.com/webhook
 Dashboard:    https://seu-dominio.com/
 Health:       https://seu-dominio.com/health
-```
+'''
 
 ---
 
@@ -518,7 +520,7 @@ Health:       https://seu-dominio.com/health
 
 **Build e execução local:**
 
-```bash
+'''bash
 docker build -t starkbank-trial .
 
 docker run -p 8080:8080 \
@@ -528,25 +530,25 @@ docker run -p 8080:8080 \
   -e STARKBANK_ENVIRONMENT="sandbox" \
   -v /path/to/keys:/run/secrets:ro \
   starkbank-trial
-```
+'''
 
 **Google Cloud Run:**
 
-```bash
+'''bash
 gcloud run deploy starkbank-trial \
   --source . \
   --region us-central1 \
   --allow-unauthenticated \
   --set-env-vars STARKBANK_PROJECT_ID="...",STARKBANK_ENVIRONMENT="sandbox"
-```
+'''
 
 > Para as chaves PEM no Cloud Run, use o Secret Manager:
 >
-> ```bash
+> '''bash
 > gcloud secrets create starkbank-private-key --data-file=keys/private-key.pem
 > gcloud secrets create starkbank-public-key  --data-file=keys/public-key.pem
 > # Injete via --set-secrets no deploy
-> ```
+> '''
 
 ---
 
@@ -574,10 +576,12 @@ gcloud run deploy starkbank-trial \
 Recebe callbacks da Stark Bank. O payload e a assinatura são enfileirados para processamento assíncrono.
 
 **Headers esperados:**
+
 - `Content-Type: application/json`
 - `Digital-Signature: <assinatura ECDSA em Base64>`
 
 **Respostas:**
+
 - `200 {"status": "queued"}` — evento enfileirado com sucesso
 - `400 {"error": "empty body"}` — body vazio
 
@@ -585,7 +589,7 @@ Recebe callbacks da Stark Bank. O payload e a assinatura são enfileirados para 
 
 Retorna status e telemetria do processo.
 
-```json
+'''json
 {
   "status": "ok",
   "timestamp": "2025-01-15T14:32:00Z",
@@ -597,7 +601,7 @@ Retorna status e telemetria do processo.
     "disk": { "free_gb": 18.5, "used_percent": 12.3 }
   }
 }
-```
+'''
 
 O campo `status` assume `"warning"` quando `cpu_usage > 95%` ou `memory.percent > 95%`.
 
@@ -609,7 +613,7 @@ Dashboard HTML com auto-refresh a cada 15 segundos. Exibe métricas do SQLite, h
 
 ## 13. Estrutura do projeto
 
-```
+'''
 starkbank-trial/
 │
 ├── app/                            ← pacote principal
@@ -660,4 +664,4 @@ starkbank-trial/
 ├── pytest.ini
 ├── .env.example
 └── .gitignore                      ← deve incluir: .env, keys/, data/
-```
+'''

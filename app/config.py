@@ -86,6 +86,8 @@ class AppConfig:
         self.ACCOUNT_TYPE   = data["account_type"]
         self.NAME           = data["name"]
         self.TAX_ID         = data["tax_id"]
+        self.PLATFORM_FEE   = int(float(data.get("platform_fee", 2.00)) * 100)
+        self.TRANSFER_FEE    = int(float(data.get("transfer_fee", 0.05)) * 100)
 
 
     def _load_invoice_config(self):
