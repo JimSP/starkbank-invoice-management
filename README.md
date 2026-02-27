@@ -86,17 +86,17 @@ setup_webhook.py        — Registra (ou verifica) o webhook na conta Stark Bank
 ┌────────────────────────────────────────────────────────────────────┐
 │                            main.py                                 │
 │                                                                    │
-│  ┌──────────────────┐   ┌─────────────────────────────────────┐   │
-│  │    Scheduler      │   │         Flask App (webhook.py)      │   │
-│  │  (BackgroundSched)│   │                                     │   │
-│  │                  │   │   GET  /          → dashboard HTML   │   │
-│  │  t=0:    _job() ─┼──►│   GET  /health   → JSON telemetria  │   │
-│  │  t=3h:   _job() ─┼──►│   POST /webhook  → enfileira evento │   │
-│  │  t=6h:   _job() ─┤   └────────────────┬────────────────────┘   │
+│  ┌──────────────────┐   ┌─────────────────────────────────────┐    │
+│  │   Scheduler      │   │         Flask App (webhook.py)      │    │
+│  │ (BackgroundSched)│   │                                     │    │
+│  │                  │   │   GET  /          → dashboard HTML  │    │
+│  │  t=0:    _job() ─┼──►│   GET  /health   → JSON telemetria  │    │
+│  │  t=3h:   _job() ─┼──►│   POST /webhook  → enfileira evento │    │
+│  │  t=6h:   _job() ─┤   └────────────────┬────────────────────┘    │
 │  │  ...             │                    │                         │
 │  └──────────────────┘                    │ event_queue.put()       │
 │                                          ▼                         │
-│                              ┌───────────────────────┐            │
+│                              ┌───────────────────────-┐            │
 │                              │   queue_worker.py      │            │
 │                              │   (daemon thread)      │            │
 │                              │                        │            │
@@ -110,7 +110,7 @@ setup_webhook.py        — Registra (ou verifica) o webhook na conta Stark Bank
           │                                 │
           ▼                                 ▼
   ┌───────────────┐               ┌──────────────────┐
-  │  invoices.py  │               │  transfers.py     │
+  │  invoices.py  │               │  transfers.py    │
   │               │               │                  │
   │  invoice      │               │  transfer        │
   │  .create()    │               │  .create()       │
