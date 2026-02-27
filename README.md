@@ -301,7 +301,7 @@ DATABASE_URL=sqlite:///data/invoices.db
 USE_MOCK_API=false
 
 # Caminhos dos arquivos de configuração JSON
-STARTBANK_TRANSFER_CONFIG_PATH=config/transfer_destination.json
+STARKBANK_TRANSFER_CONFIG_PATH=config/transfer_destination.json
 INVOICE_SCHEDULER_CONFIG_PATH=config/invoice_scheduler_config.json
 '''
 
@@ -564,7 +564,7 @@ gcloud run deploy starkbank-trial \
 | `LOG_LEVEL` | — | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL` |
 | `DATABASE_URL` | — | `sqlite:///data/invoices.db` | URL de conexão SQLAlchemy |
 | `USE_MOCK_API` | — | `false` | `true` para ativar o mock interceptor |
-| `STARTBANK_TRANSFER_CONFIG_PATH` | — | `config/transfer_destination.json` | Caminho para o JSON de destino de transfer |
+| `STARKBANK_TRANSFER_CONFIG_PATH` | — | `config/transfer_destination.json` | Caminho para o JSON de destino de transfer |
 | `INVOICE_SCHEDULER_CONFIG_PATH` | — | `config/invoice_scheduler_config.json` | Caminho para o JSON do scheduler |
 
 ---

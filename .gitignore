@@ -10,5 +10,5 @@ dist/
 build/
 ssh-key.key
 ssh-key.pub
-startkbank_cert/
+starkbank_cert/
 .DS_Store

@@ -63,7 +63,7 @@ def test_config_invoice_int_conversion_error(tmp_path, monkeypatch):
         "bank_code": "1", "branch_code": "1", "account_number": "1", 
         "account_type": "1", "name": "1", "tax_id": "1"
     }))
-    monkeypatch.setenv("STARTBANK_TRANSFER_CONFIG_PATH", str(t))
+    monkeypatch.setenv("STARKBANK_TRANSFER_CONFIG_PATH", str(t))
 
     p = tmp_path / "bad_invoice.json"
     p.write_text('{"min_batch": "TEXTO_NO_LUGAR_DE_NUMERO", "max_batch": 12, "interval_hours": 3, "duration_hours": 24}')

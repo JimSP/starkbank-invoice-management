@@ -74,7 +74,7 @@ class AppConfig:
 
 
     def _load_transfer_config(self):
-        path = os.environ.get("STARTBANK_TRANSFER_CONFIG_PATH", "config/transfer_destination.json")
+        path = os.environ.get("STARKBANK_TRANSFER_CONFIG_PATH", "config/transfer_destination.json")
         data = self._load_strict_json(path, "Transfer Destination")
         self._validate_keys(data, 
             ["bank_code", "branch_code", "account_number", "account_type", "name", "tax_id"], 
