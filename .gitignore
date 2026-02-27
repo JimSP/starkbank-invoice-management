@@ -12,3 +12,5 @@ ssh-key.key
 ssh-key.pub
 starkbank_cert/
 .DS_Store
+data/
+logs/
