@@ -1,18 +1,9 @@
-"""
-setup_webhook.py
-================
-One-time script to register the webhook endpoint on Stark Bank.
-
-    python setup_webhook.py https://your-domain.com/webhook
-"""
-
 import sys
 import starkbank
 from app.config import config
 
 
 def register(url: str) -> starkbank.Webhook:
-    """Create a webhook for *url* (or return existing one)."""
     for existing in starkbank.webhook.query():
         if existing.url == url:
             print(f"[OK] Already registered — id={existing.id}  url={existing.url}")

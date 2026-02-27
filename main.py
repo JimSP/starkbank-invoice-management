@@ -1,18 +1,11 @@
-"""
-main.py
-=======
-Application entry point.  Starts APScheduler in a background thread and
-the Flask webhook server in the main thread.
-
-    python main.py
-"""
-
 import logging
 import signal
 import sys
 
 from app.config import config
+from app.database import init_db 
 from app.scheduler import start_scheduler
+from app.queue_worker import start_worker
 from app.webhook import app
 
 logging.basicConfig(
@@ -21,14 +14,17 @@ logging.basicConfig(
     datefmt="%Y-%m-%dT%H:%M:%SZ",
 )
 
+
 def main() -> None:  # pragma: no cover
 
     if config.USE_MOCK_API:
         from app.mock_interceptor import setup_mock_interceptor
         setup_mock_interceptor()
+    
+    init_db()
 
     config.init_starkbank()
-
+    start_worker()
     scheduler = start_scheduler()
 
     def _shutdown(signum, frame):

@@ -6,6 +6,7 @@ import starkbank
 
 from app.config import config
 from app.people import random_payer
+from app.database import save_invoices
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +14,6 @@ _EXPIRATION_SECONDS = int(timedelta(hours=1).total_seconds())
 
 
 def _make_invoice() -> starkbank.Invoice:
-    """Build one Invoice for a random payer due in one hour."""
     payer = random_payer()
     due   = datetime.now(tz=timezone.utc) + timedelta(hours=1)
 
@@ -34,4 +34,10 @@ def issue_batch() -> list[starkbank.Invoice]:
 
     created = starkbank.invoice.create(invoices)
     logger.info("Issued %d invoices (ids: %s)", len(created), [i.id for i in created])
+
+    try:
+        save_invoices(created)
+    except Exception as exc:
+        logger.error("Falha ao salvar invoices no banco: %s", exc, exc_info=True)
+
     return created

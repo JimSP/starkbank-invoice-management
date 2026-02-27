@@ -1,18 +1,14 @@
 import os
 import time
-import json
 import logging
 import psutil
 from datetime import datetime, timezone
-from typing import Any
 
 from flask import Flask, jsonify, request, render_template_string
 
-import starkbank
-
-from app.transfers import forward_payment
 from app.config import config
-from app.state import MockEvent, MockInvoice, MockLog, webhook_history, webhook_stats
+from app.state import webhook_history, webhook_stats
+from app.database import get_invoice_stats
 
 
 logger = logging.getLogger(__name__)
@@ -50,8 +46,6 @@ def health():
 
 @app.post("/webhook")
 def webhook():
-    """Recebe o callback, enfileira e responde imediatamente."""
-    # Import local para evitar importação circular no nível do módulo
     from app.queue_worker import event_queue
 
     webhook_stats["total_received"] += 1
@@ -73,22 +67,12 @@ def webhook():
     return jsonify({"status": "queued"}), 200
 
 
-def _handle_invoice_event(log) -> None:
-    invoice = log.invoice
-
-    if log.type != "credited":
-        logger.debug("Invoice %s — log type '%s' ignored.", invoice.id, log.type)
-        return
-
-    logger.info("Invoice %s credited — amount: %d ¢, fee: %d ¢.", invoice.id, invoice.amount, getattr(invoice, 'fee', 0))
-    forward_payment(invoice_id=invoice.id, credited_amount=invoice.amount, fee=getattr(invoice, 'fee', 0))
-
-
 @app.get("/")
 def dashboard():
     from app.scheduler import job_history
 
     mock_active = os.environ.get("USE_MOCK_API", "false").lower() == "true"
+    db_stats = get_invoice_stats()
 
     html_template = """
     <!DOCTYPE html>
@@ -110,11 +94,11 @@ def dashboard():
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                 <div class="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg">
                     <p class="text-slate-400 text-sm mb-2">Webhooks Recebidos</p>
-                    <p class="text-4xl font-mono">{{ stats.total_received }}</p>
+                    <p class="text-4xl font-mono">{{ db_stats.total_recebido }} <span class="text-slate-500 text-2xl">/ {{ db_stats.total_enviado + db_stats.total_recebido }}</span></p>
                 </div>
                 <div class="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg">
                     <p class="text-slate-400 text-sm mb-2">Volume Processado</p>
-                    <p class="text-4xl font-mono text-emerald-400">R$ {{ "%.2f"|format(stats.total_amount_cents / 100) }}</p>
+                    <p class="text-4xl font-mono text-emerald-400">R$ {{ "%.2f"|format(db_stats.volume_cents / 100) }}</p>
                 </div>
                 <div class="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg">
                     <p class="text-slate-400 text-sm mb-2">Erros e Rejeições</p>
@@ -192,5 +176,6 @@ def dashboard():
         webhook_history=list(webhook_history),
         scheduler_history=list(job_history),
         config=config,
-        mock_active=mock_active
+        mock_active=mock_active,
+        db_stats=db_stats
     )

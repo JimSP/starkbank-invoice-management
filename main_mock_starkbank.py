@@ -4,8 +4,6 @@ import threading
 import requests
 from flask import Flask, jsonify, request
 from ellipticcurve.ecdsa import Ecdsa
-from ellipticcurve.publicKey import PublicKey
-from ellipticcurve.signature import Signature
 from ellipticcurve.privateKey import PrivateKey
 
 import starkbank
@@ -22,7 +20,7 @@ def sign_payload(payload_string):
         key_contents = f.read()
 
     private_key_obj = PrivateKey.fromPem(key_contents)
-    
+
     return Ecdsa.sign(payload_string, private_key_obj).toBase64()
 
 
@@ -36,27 +34,26 @@ def get_public_key():
         }]
     })
 
+
 @app.route("/v2/invoice", methods=["POST"])
 def create_invoice():
     """Finge criar Invoices e agenda o envio do Webhook."""
     data = request.json
     invoices = data.get("invoices", [])
     
-    # Adicionamos IDs falsos nas invoices recebidas
     for i, inv in enumerate(invoices):
         inv["id"] = f"mock_inv_{int(time.time())}_{i}"
         inv["fee"] = 200
         inv["status"] = "created"
 
-    # Se criaram faturas, vamos fingir que a primeira foi paga 3 segundos depois
     if invoices:
         threading.Thread(target=trigger_webhook, args=(invoices[0],), daemon=True).start()
 
     return jsonify({"invoices": invoices})
 
+
 @app.route("/v2/transfer", methods=["POST"])
 def create_transfer():
-    """Finge criar a Transferência recebida pelo seu app."""
     data = request.json
     transfers = data.get("transfers", [])
     
@@ -67,9 +64,9 @@ def create_transfer():
 
     return jsonify({"transfers": transfers})
 
+
 def trigger_webhook(invoice):
-    """Envia o webhook para o seu app (porta 8080) usando a chave do Mock."""
-    time.sleep(3) # Tempo simulado do pagamento
+    time.sleep(3)
     print(f"\n[STARK BANK MOCK] 📢 Alguém pagou a invoice {invoice['id']}! Enviando webhook...")
     
     payload = {
@@ -84,7 +81,6 @@ def trigger_webhook(invoice):
     }
     payload_str = json.dumps(payload, separators=(',', ':'))
     
-    # Assina usando a chave PRIVADA do Mock
     priv_key_obj = PrivateKey.fromPem(mock_private_key)
     signature = Ecdsa.sign(payload_str, priv_key_obj).toBase64()
 

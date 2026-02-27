@@ -13,26 +13,31 @@ class TestForwardPayment:
         forward_payment("inv1", credited_amount=10_000, fee=250)
         assert mock_create.call_args[0][0][0].amount == 9_750
 
+
     @patch("app.transfers.starkbank.transfer.create")
     def test_returns_first_created_transfer(self, mock_create):
         fake = MagicMock(id="t1")
         mock_create.return_value = [fake]
         assert forward_payment("inv1", credited_amount=5_000, fee=100) is fake
 
+
     @patch("app.transfers.starkbank.transfer.create")
     def test_zero_net_skips_api(self, mock_create):
         assert forward_payment("inv2", credited_amount=500, fee=500) is None
         mock_create.assert_not_called()
+
 
     @patch("app.transfers.starkbank.transfer.create")
     def test_negative_net_skips_api(self, mock_create):
         assert forward_payment("inv3", credited_amount=100, fee=500) is None
         mock_create.assert_not_called()
 
+
     @patch("app.transfers.starkbank.transfer.create", side_effect=Exception("timeout"))
     def test_propagates_api_exception(self, _):
         with pytest.raises(Exception, match="timeout"):
             forward_payment("inv4", credited_amount=5_000, fee=100)
+
 
     @patch("app.transfers.starkbank.transfer.create")
     def test_uses_correct_destination(self, mock_create):

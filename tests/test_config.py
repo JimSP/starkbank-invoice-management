@@ -1,4 +1,3 @@
-import os
 import json
 import pytest
 from unittest.mock import MagicMock, patch
@@ -6,9 +5,11 @@ import starkbank
 
 from app.config import AppConfig, config
 
+
 def test_load_strict_json_file_not_found():
     with pytest.raises(FileNotFoundError, match="não encontrado em"):
         AppConfig._load_strict_json("arquivo_que_nao_existe.json", "contexto_teste")
+
 
 def test_load_strict_json_invalid_format(tmp_path):
     d = tmp_path / "bad.json"
@@ -16,11 +17,13 @@ def test_load_strict_json_invalid_format(tmp_path):
     with pytest.raises(ValueError, match="JSON inválido"):
         AppConfig._load_strict_json(str(d), "contexto_teste")
 
+
 def test_load_strict_json_empty_file(tmp_path):
     p = tmp_path / "empty.json"
     p.write_text("{}")
     with pytest.raises(ValueError, match="está vazio"):
         AppConfig._load_strict_json(str(p), "Teste")
+
 
 def test_load_strict_json_invalid_decode(tmp_path):
     p = tmp_path / "corrupt.json"
@@ -28,21 +31,25 @@ def test_load_strict_json_invalid_decode(tmp_path):
     with pytest.raises(ValueError, match="JSON inválido em"):
         AppConfig._load_strict_json(str(p), "Teste")
 
+
 def test_get_env_or_raise_exception(monkeypatch):
     monkeypatch.delenv("STARKBANK_PROJECT_ID", raising=False)
     with pytest.raises(KeyError, match="obrigatória no .env"):
         AppConfig._get_env_or_raise("STARKBANK_PROJECT_ID")
+
 
 def test_validate_keys_missing_key():
     data = {"existing_key": "value"}
     with pytest.raises(KeyError, match="ausente no arquivo"):
         AppConfig._validate_keys(data, ["missing_key"], "test_file.json")
 
+
 def test_parse_log_level_invalid(monkeypatch):
     monkeypatch.setenv("LOG_LEVEL", "NIVEL_INVENTADO")
     dummy = object.__new__(AppConfig)
     with pytest.raises(ValueError, match="inválido no .env"):
         dummy._parse_log_level()
+
 
 def test_config_invoice_int_conversion_error(tmp_path, monkeypatch):
     monkeypatch.setenv("STARKBANK_PROJECT_ID", "dummy_id")
@@ -67,17 +74,20 @@ def test_config_invoice_int_conversion_error(tmp_path, monkeypatch):
     with pytest.raises(ValueError):
         AppConfig(env_file=".env.test")
 
+
 class TestInitStarkbank:
     def test_returns_project(self):
         fake = MagicMock(spec=starkbank.Project)
         with patch("app.config.starkbank.Project", return_value=fake):
             assert config.init_starkbank() is fake
 
+
     def test_sets_global_user(self):
         fake = MagicMock(spec=starkbank.Project)
         with patch("app.config.starkbank.Project", return_value=fake):
             config.init_starkbank()
         assert starkbank.user is fake
+
 
     def test_uses_configured_values(self):
         with patch("app.config.starkbank.Project") as MockProject:

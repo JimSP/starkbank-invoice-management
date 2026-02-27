@@ -4,17 +4,25 @@ import logging
 import starkbank
 from dotenv import load_dotenv
 
+
 class AppConfig:
     def __init__(self, env_file=".env"):
         load_dotenv(env_file)
 
         self.LOG_LEVEL = self._parse_log_level()
+        self.DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///data/invoices.db")
         self.APP_PORT  = int(os.environ.get("APP_PORT", 8080))
         self.STARKBANK_PROJECT_ID  = self._get_env_or_raise("STARKBANK_PROJECT_ID")
 
         starkbank_private_key_path = self._get_env_or_raise("STARKBANK_PRIVATE_KEY")
         with open(starkbank_private_key_path, "r") as f:
-                self.STARKBANK_PRIVATE_KEY = f.read()
+            self.STARKBANK_PRIVATE_KEY = f.read()
+        
+        starkbank_public_key_path = self._get_env_or_raise("STARKBANK_PUBLIC_KEY")
+        with open(starkbank_public_key_path, "r") as f:
+            self.STARKBANK_PUBLIC_KEY = f.read()
+
+        print(f"STARKBANK_PUBLIC_KEY: {self.STARKBANK_PUBLIC_KEY}")
 
         self.STARKBANK_ENVIRONMENT = os.environ.get("STARKBANK_ENVIRONMENT", "sandbox")
         self.USE_MOCK_API = os.environ.get("USE_MOCK_API", "false").lower() == "true"
@@ -22,12 +30,14 @@ class AppConfig:
         self._load_transfer_config()
         self._load_invoice_config()
 
+
     @staticmethod
     def _get_env_or_raise(key):
         value = os.environ.get(key)
         if not value or not value.strip():
             raise KeyError(f"❌ CONFIG_ERROR: Variável de ambiente '{key}' é obrigatória no .env")
         return value
+
 
     @staticmethod
     def _load_strict_json(path, context_name):
@@ -42,11 +52,13 @@ class AppConfig:
         except json.JSONDecodeError as e:
             raise ValueError(f"❌ CONFIG_ERROR: JSON inválido em '{path}': {e}")
 
+
     @staticmethod
     def _validate_keys(data, required_keys, source_name):
         for key in required_keys:
             if key not in data or data[key] is None:
                 raise KeyError(f"❌ CONFIG_ERROR: Chave '{key}' ausente no arquivo '{source_name}'")
+
 
     def _parse_log_level(self):
         raw_level = os.environ.get("LOG_LEVEL", "INFO").upper()
@@ -62,6 +74,7 @@ class AppConfig:
                              f"Use: DEBUG, INFO, WARNING, ERROR ou CRITICAL.")
         return level_map[raw_level]
 
+
     def _load_transfer_config(self):
         path = os.environ.get("STARTBANK_TRANSFER_CONFIG_PATH", "config/transfer_destination.json")
         data = self._load_strict_json(path, "Transfer Destination")
@@ -76,6 +89,7 @@ class AppConfig:
         self.NAME           = data["name"]
         self.TAX_ID         = data["tax_id"]
 
+
     def _load_invoice_config(self):
         path = os.environ.get("INVOICE_SCHEDULER_CONFIG_PATH", "config/invoice_scheduler_config.json")
         data = self._load_strict_json(path, "Invoice Scheduler")
@@ -87,6 +101,7 @@ class AppConfig:
         self.INVOICE_MAX_BATCH      = int(data["max_batch"])
         self.INVOICE_INTERVAL_HOURS = int(data["interval_hours"])
         self.INVOICE_DURATION_HOURS = int(data["duration_hours"])
+
 
     def init_starkbank(self) -> starkbank.Project:
         project = starkbank.Project(

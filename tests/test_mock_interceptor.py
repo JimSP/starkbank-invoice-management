@@ -2,6 +2,7 @@ import requests
 import pytest
 from app.mock_interceptor import setup_mock_interceptor
 
+
 def test_mock_interceptor_redirects_url(monkeypatch):
     original_request = requests.Session.request
     setup_mock_interceptor()
@@ -14,6 +15,7 @@ def test_mock_interceptor_redirects_url(monkeypatch):
         assert "9090" in str(exc.value)
     finally:
         requests.Session.request = original_request
+
 
 def test_mock_interceptor_ignores_other_urls(monkeypatch):
     import requests

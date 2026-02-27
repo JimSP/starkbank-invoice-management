@@ -3,8 +3,10 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 def setup_mock_interceptor():
     original_request = requests.Session.request
+
 
     def _redirect_request(self, method, url, *args, **kwargs):
         if isinstance(url, str) and "starkbank.com" in url:

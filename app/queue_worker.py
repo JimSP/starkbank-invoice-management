@@ -12,15 +12,16 @@ from ellipticcurve.signature import Signature
 
 from app.transfers import forward_payment
 from app.state import MockEvent, webhook_history, webhook_stats
+from app.database import mark_invoice_received
+
+import requests
 
 logger = logging.getLogger(__name__)
 
-# Fila ilimitada (use maxsize=N para backpressure se necessário)
 event_queue: queue.Queue = queue.Queue()
 
 
 def _record_and_handle(event: Any) -> None:
-    """Registra o evento no histórico compartilhado e aciona o handler correto."""
     sub = getattr(event, "subscription", "unknown")
     ev_id = getattr(event, "id", "unknown")
     logger.info("Processando evento — subscription=%s id=%s", sub, ev_id)
@@ -29,8 +30,8 @@ def _record_and_handle(event: Any) -> None:
         log = event.log
         inv = getattr(log, "invoice", None)
 
-        inv_id = getattr(inv, "id", "N/A") if inv else "N/A"
-        amt = getattr(inv, "amount", 0) if inv else 0
+        inv_id   = getattr(inv, "id", "N/A") if inv else "N/A"
+        amt      = getattr(inv, "amount", 0) if inv else 0
         log_type = getattr(log, "type", "unknown")
 
         webhook_history.appendleft({
@@ -57,42 +58,50 @@ def _dispatch_invoice(log: Any) -> None:
     if log.type != "credited":
         logger.debug("Invoice %s — log type '%s' ignorado.", invoice.id, log.type)
         return
+
     logger.info(
         "Invoice %s credited — amount: %d ¢, fee: %d ¢.",
         invoice.id,
         invoice.amount,
         getattr(invoice, "fee", 0),
     )
-    forward_payment(
+
+    transfer = forward_payment(
         invoice_id=invoice.id,
         credited_amount=invoice.amount,
         fee=getattr(invoice, "fee", 0),
     )
 
+    try:
+        transfer_id = transfer.id if transfer else None
+        mark_invoice_received(invoice_id=invoice.id, transfer_id=transfer_id)
+    except Exception as exc:
+        logger.error(
+            "Falha ao atualizar status da invoice '%s' no banco: %s",
+            invoice.id, exc, exc_info=True,
+        )
+
 
 def _process(item: dict) -> None:
-    content: str = item["content"]
+    content: str   = item["content"]
     signature: str = item["signature"]
-    is_mock: bool = item["is_mock"]
+    is_mock: bool  = item["is_mock"]
 
     event: Any = None
-
+    from app.config import config
     try:
         if is_mock:
-            with open("startkbank_cert/public-key.pem") as f:
-                pub_key_obj = PublicKey.fromPem(f.read())
+            resp = requests.get("http://127.0.0.1:9090/v2/public-key").json()
+            pub_key_pem = resp["publicKeys"][0]["content"]
+            pub_key_obj = PublicKey.fromPem(pub_key_pem)
 
             try:
                 sig_obj = Signature.fromBase64(signature)
             except Exception:
-                raise starkbank.error.InvalidSignatureError(
-                    "Formato de assinatura Base64 inválido no Mock"
-                )
+                raise starkbank.error.InvalidSignatureError("Formato de assinatura Base64 inválido no Mock")
 
             if not Ecdsa.verify(content, sig_obj, pub_key_obj):
-                raise starkbank.error.InvalidSignatureError(
-                    "Assinatura Mock não confere com a chave pública local!"
-                )
+                raise starkbank.error.InvalidSignatureError("Assinatura Mock não confere!")
 
             data = json.loads(content)
             event = MockEvent(data.get("event", data))
